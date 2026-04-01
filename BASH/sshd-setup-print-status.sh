@@ -1,5 +1,15 @@
 #!/bin/bash
 
+################################################################################
+# Script Name: sshd-setup.sh
+# Description: Automates the verification, installation, and hardening of the
+#              OpenSSH server (sshd) and configures the local firewall.
+# Author:      Kshitiz Awasthi
+# Date:        2026-04-01
+# Usage:       sudo ./sshd-setup-print-status.sh
+# Requirements: root/sudo access; yum or dnf package manager.
+################################################################################
+
 # 1. Check for root privileges
 echo "[STEP 1] Verifying administrative privileges..."
 if [ "$EUID" -ne 0 ]; then 
