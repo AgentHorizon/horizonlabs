@@ -1,5 +1,15 @@
 #!/bin/bash
 
+################################################################################
+# Script Name: remote-fetch.sh
+# Description: A utility to download files/directories from a remote Linux 
+#              server using either SCP or RSYNC.
+# Author:      Kshitiz Awasthi
+# Date:        2026-04-01
+# Usage:       ./remote-fetch.sh
+# Requirements: OpenSSH (ssh, scp) and rsync installed on both local and remote.
+################################################################################
+
 # 1. Gather Connection Details
 echo "--- Remote Connection Details ---"
 read -p "Enter Remote IP or Hostname: " REMOTE_HOST
