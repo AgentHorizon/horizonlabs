@@ -6,15 +6,16 @@ A centralized collection of automation scripts and utilities written in Bash, Py
 
 ## 📂 Script Inventory
 
-`START_METADATA`
-`END_METADATA`
+<!-- START_METADATA -->
+
+<!-- END_METADATA -->
 
 ---
 
 ## 🚀 Getting Started
 
 1. **Clone the repository:**
-   `git clone https://github.com/YourGitHubUsername/your-repo-name.git`
+   `git clone https://github.com/YourGitHubUsername/horizonlabs.git`
 
 2. **Navigate to the desired directory:**
    `cd BASH`
@@ -42,4 +43,4 @@ This project is licensed under the MIT License.
 ---
 
 ## 👤 Author
-**@YourGitHubUsername**
+**@AgentHorizon**
