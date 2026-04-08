@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DirHunt — Open Directory Search</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent: #00ffaa;
+    --accent2: #ff3e6c;
+    --accent3: #7b61ff;
+    --text: #e8e8f0;
+    --muted: #5a5a7a;
+    --glow: rgba(0,255,170,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,170,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,170,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Radial glow center */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0,255,170,0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px 20px 40px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  .logo-tag {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 4px 12px;
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.1s forwards;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(42px, 8vw, 80px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -2px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease 0.2s forwards;
+  }
+
+  h1 span.dir { color: var(--accent); }
+  h1 span.hunt { color: var(--text); }
+
+  .tagline {
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    opacity: 0;
+    animation: fadeUp 0.6s ease 0.35s forwards;
+  }
+
+  /* Search card */
+  .card {
+    width: 100%;
+    max-width: 720px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 32px;
+    position: relative;
+    opacity: 0;
+    animation: fadeUp 0.7s ease 0.45s forwards;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 20px; right: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .field-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-right: none;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+    padding: 14px 18px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .search-input::placeholder { color: var(--muted); }
+  .search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent) inset, 0 0 20px var(--glow);
+  }
+
+  .search-btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 14px 22px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .search-btn:hover { background: #00e699; }
+  .search-btn:active { transform: scale(0.98); }
+
+  /* Search mode */
+  .mode-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    margin-bottom: 12px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .mode-btn {
+    background: var(--surface);
+    border: none;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 11px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    position: relative;
+  }
+  .mode-btn .mode-name {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+  .mode-btn .mode-desc {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .mode-btn:hover { background: rgba(255,255,255,0.03); }
+
+  /* Mode colour tokens */
+  .mode-btn.active[data-mode="index"]            { background: rgba(0,255,170,0.06); }
+  .mode-btn.active[data-mode="index"] .mode-name { color: var(--accent); }
+  .mode-btn.active[data-mode="index"]::after     { background: var(--accent); }
+
+  .mode-btn.active[data-mode="inurl"]            { background: rgba(255,62,108,0.06); }
+  .mode-btn.active[data-mode="inurl"] .mode-name { color: var(--accent2); }
+  .mode-btn.active[data-mode="inurl"]::after     { background: var(--accent2); }
+
+  .mode-btn.active[data-mode="combined-inc"]            { background: rgba(123,97,255,0.07); }
+  .mode-btn.active[data-mode="combined-inc"] .mode-name { color: var(--accent3); }
+  .mode-btn.active[data-mode="combined-inc"]::after     { background: var(--accent3); }
+
+  .mode-btn.active[data-mode="combined-exc"]            { background: rgba(255,160,30,0.06); }
+  .mode-btn.active[data-mode="combined-exc"] .mode-name { color: #ffaa33; }
+  .mode-btn.active[data-mode="combined-exc"]::after     { background: #ffaa33; }
+
+  .mode-btn.active::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 3px;
+  }
+
+  .mode-note {
+    font-size: 10px;
+    color: var(--muted);
+    border-left: 3px solid var(--accent2);
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    line-height: 1.6;
+    display: none;
+    background: rgba(0,0,0,0.2);
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .mode-note.visible { display: block; }
+  .mode-note strong { font-weight: 700; }
+  .mode-note code { font-family: 'Space Mono', monospace; font-size: 10px; }
+
+  /* Engines */
+  .engines-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .engines {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .engine-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .engine-btn:hover, .engine-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--glow);
+  }
+
+  .engine-btn.active::after {
+    content: '✓';
+    margin-left: 6px;
+    font-size: 10px;
+  }
+
+  /* Filter clear row */
+  .filter-clear-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .clear-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .clear-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .selected-count {
+    font-size: 10px;
+    color: var(--accent3);
+    letter-spacing: 1px;
+    min-width: 80px;
+  }
+
+  /* Filter groups */
+  .filter-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .filter-group {}
+
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .group-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #5a5a8a;
+    padding: 3px 9px;
+    border: 1px solid #2a2a3e;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+    background: transparent;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .group-label:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--glow);
+  }
+
+  .group-label.group-all-active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--glow);
+  }
+
+  .group-divider {
+    flex: 1;
+    height: 1px;
+    background: #1e1e2e;
+  }
+
+  /* File type filters */
+  .filters-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 0;
+  }
+
+  .filter-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 4px 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 2px;
+    user-select: none;
+  }
+
+  .filter-btn:hover { color: var(--accent3); border-color: var(--accent3); }
+  .filter-btn.active {
+    color: var(--accent3);
+    border-color: var(--accent3);
+    background: rgba(123,97,255,0.12);
+  }
+
+  /* Query preview */
+  .query-preview {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent3);
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    word-break: break-all;
+    line-height: 1.6;
+    min-height: 48px;
+  }
+
+  .query-preview .kw { color: var(--accent); }
+  .query-preview .op { color: var(--accent2); }
+
+  /* How it works */
+  .how-it-works {
+    width: 100%;
+    max-width: 720px;
+    margin-top: 40px;
+    opacity: 0;
+    animation: fadeUp 0.7s ease 0.6s forwards;
+  }
+
+  .how-title {
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .how-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+  }
+
+  @media (max-width: 640px) {
+    .steps { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 360px) {
+    .steps { grid-template-columns: 1fr; }
+  }
+
+  .step {
+    background: var(--surface);
+    padding: 20px;
+  }
+
+  .step-num {
+    font-size: 28px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    color: var(--border);
+    margin-bottom: 8px;
+  }
+
+  .step-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .step-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* Footer */
+  footer {
+    margin-top: auto;
+    padding-top: 40px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent); }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .card { padding: 20px; }
+    .search-btn { padding: 14px 14px; font-size: 11px; letter-spacing: 1px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo-tag">Open Directory Search</div>
+    <h1><span class="dir">Dir</span><span class="hunt">Hunt</span></h1>
+    <p class="tagline">// Search open directories across the web — no accounts, no ads, no nonsense</p>
+  </header>
+
+  <div class="card">
+    <div class="field-label">// Search Query</div>
+    <div class="search-row">
+      <input
+        class="search-input"
+        id="searchInput"
+        type="text"
+        placeholder="e.g. dark knight 1080p mkv"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="search-btn" onclick="doSearch()">SEARCH →</button>
+    </div>
+
+    <div class="mode-label">// Search Mode</div>
+    <div class="modes">
+      <button class="mode-btn active" data-mode="index" onclick="selectMode(this)">
+        <span class="mode-name">Directory Listing</span>
+        <span class="mode-desc">intitle:"index of" — browse open server folders</span>
+      </button>
+      <button class="mode-btn" data-mode="inurl" onclick="selectMode(this)">
+        <span class="mode-name">Direct File ↗</span>
+        <span class="mode-desc">inurl:".ext" — results whose URL is the file itself</span>
+      </button>
+      <button class="mode-btn" data-mode="combined-inc" onclick="selectMode(this)">
+        <span class="mode-name">Combined — Include ext</span>
+        <span class="mode-desc">intitle:"index of" + inurl:".ext" — directories that contain matching files</span>
+      </button>
+      <button class="mode-btn" data-mode="combined-exc" onclick="selectMode(this)">
+        <span class="mode-name">Combined — Exclude ext</span>
+        <span class="mode-desc">intitle:"index of" + -inurl:".ext" — directories without those file types</span>
+      </button>
+    </div>
+    <div class="mode-note" id="modeNote"></div>
+
+    <div class="engines-label">// Search Engine</div>
+    <div class="engines" id="engines">
+      <button class="engine-btn active" data-engine="google" onclick="selectEngine(this)">Google</button>
+      <button class="engine-btn" data-engine="bing" onclick="selectEngine(this)">Bing</button>
+      <button class="engine-btn" data-engine="ddg" onclick="selectEngine(this)">DuckDuckGo</button>
+      <button class="engine-btn" data-engine="startpage" onclick="selectEngine(this)">Startpage</button>
+    </div>
+
+    <div class="filters-label">// File Types <span style="color:var(--accent3);font-size:9px;letter-spacing:1px">(multi-select — click to toggle)</span></div>
+
+    <div class="filter-clear-row">
+      <button class="clear-btn" onclick="clearFilters()">✕ Clear All</button>
+      <span class="selected-count" id="selectedCount"></span>
+    </div>
+
+    <div class="filter-groups" id="filterGroups">
+
+      <div class="filter-group" data-group="video">
+        <div class="group-header">
+          <button class="group-label" onclick="toggleGroup('video')">Video</button>
+          <div class="group-divider"></div>
+        </div>
+        <div class="filters">
+          <button class="filter-btn" data-ext="mp4" onclick="toggleFilter(this)">mp4</button>
+          <button class="filter-btn" data-ext="mkv" onclick="toggleFilter(this)">mkv</button>
+          <button class="filter-btn" data-ext="avi" onclick="toggleFilter(this)">avi</button>
+          <button class="filter-btn" data-ext="mov" onclick="toggleFilter(this)">mov</button>
+          <button class="filter-btn" data-ext="wmv" onclick="toggleFilter(this)">wmv</button>
+          <button class="filter-btn" data-ext="m4v" onclick="toggleFilter(this)">m4v</button>
+          <button class="filter-btn" data-ext="webm" onclick="toggleFilter(this)">webm</button>
+          <button class="filter-btn" data-ext="ts" onclick="toggleFilter(this)">ts</button>
+          <button class="filter-btn" data-ext="m2ts" onclick="toggleFilter(this)">m2ts</button>
+          <button class="filter-btn" data-ext="mts" onclick="toggleFilter(this)">mts</button>
+          <button class="filter-btn" data-ext="flv" onclick="toggleFilter(this)">flv</button>
+          <button class="filter-btn" data-ext="mpg" onclick="toggleFilter(this)">mpg</button>
+          <button class="filter-btn" data-ext="mpeg" onclick="toggleFilter(this)">mpeg</button>
+          <button class="filter-btn" data-ext="3gp" onclick="toggleFilter(this)">3gp</button>
+          <button class="filter-btn" data-ext="vob" onclick="toggleFilter(this)">vob</button>
+          <button class="filter-btn" data-ext="divx" onclick="toggleFilter(this)">divx</button>
+        </div>
+      </div>
+
+      <div class="filter-group" data-group="audio">
+        <div class="group-header">
+          <button class="group-label" onclick="toggleGroup('audio')">Audio</button>
+          <div class="group-divider"></div>
+        </div>
+        <div class="filters">
+          <button class="filter-btn" data-ext="mp3" onclick="toggleFilter(this)">mp3</button>
+          <button class="filter-btn" data-ext="flac" onclick="toggleFilter(this)">flac</button>
+          <button class="filter-btn" data-ext="aac" onclick="toggleFilter(this)">aac</button>
+          <button class="filter-btn" data-ext="wav" onclick="toggleFilter(this)">wav</button>
+          <button class="filter-btn" data-ext="ogg" onclick="toggleFilter(this)">ogg</button>
+          <button class="filter-btn" data-ext="m4a" onclick="toggleFilter(this)">m4a</button>
+          <button class="filter-btn" data-ext="opus" onclick="toggleFilter(this)">opus</button>
+          <button class="filter-btn" data-ext="wma" onclick="toggleFilter(this)">wma</button>
+          <button class="filter-btn" data-ext="alac" onclick="toggleFilter(this)">alac</button>
+          <button class="filter-btn" data-ext="aiff" onclick="toggleFilter(this)">aiff</button>
+        </div>
+      </div>
+
+      <div class="filter-group" data-group="archives">
+        <div class="group-header">
+          <button class="group-label" onclick="toggleGroup('archives')">Archives</button>
+          <div class="group-divider"></div>
+        </div>
+        <div class="filters">
+          <button class="filter-btn" data-ext="zip" onclick="toggleFilter(this)">zip</button>
+          <button class="filter-btn" data-ext="rar" onclick="toggleFilter(this)">rar</button>
+          <button class="filter-btn" data-ext="7z" onclick="toggleFilter(this)">7z</button>
+          <button class="filter-btn" data-ext="tar" onclick="toggleFilter(this)">tar</button>
+          <button class="filter-btn" data-ext="gz" onclick="toggleFilter(this)">gz</button>
+          <button class="filter-btn" data-ext="bz2" onclick="toggleFilter(this)">bz2</button>
+          <button class="filter-btn" data-ext="xz" onclick="toggleFilter(this)">xz</button>
+          <button class="filter-btn" data-ext="iso" onclick="toggleFilter(this)">iso</button>
+          <button class="filter-btn" data-ext="img" onclick="toggleFilter(this)">img</button>
+        </div>
+      </div>
+
+      <div class="filter-group" data-group="documents">
+        <div class="group-header">
+          <button class="group-label" onclick="toggleGroup('documents')">Documents</button>
+          <div class="group-divider"></div>
+        </div>
+        <div class="filters">
+          <button class="filter-btn" data-ext="pdf" onclick="toggleFilter(this)">pdf</button>
+          <button class="filter-btn" data-ext="epub" onclick="toggleFilter(this)">epub</button>
+          <button class="filter-btn" data-ext="mobi" onclick="toggleFilter(this)">mobi</button>
+          <button class="filter-btn" data-ext="djvu" onclick="toggleFilter(this)">djvu</button>
+          <button class="filter-btn" data-ext="docx" onclick="toggleFilter(this)">docx</button>
+          <button class="filter-btn" data-ext="pptx" onclick="toggleFilter(this)">pptx</button>
+          <button class="filter-btn" data-ext="xlsx" onclick="toggleFilter(this)">xlsx</button>
+          <button class="filter-btn" data-ext="txt" onclick="toggleFilter(this)">txt</button>
+        </div>
+      </div>
+
+      <div class="filter-group" data-group="software">
+        <div class="group-header">
+          <button class="group-label" onclick="toggleGroup('software')">Software</button>
+          <div class="group-divider"></div>
+        </div>
+        <div class="filters">
+          <button class="filter-btn" data-ext="exe" onclick="toggleFilter(this)">exe</button>
+          <button class="filter-btn" data-ext="msi" onclick="toggleFilter(this)">msi</button>
+          <button class="filter-btn" data-ext="dmg" onclick="toggleFilter(this)">dmg</button>
+          <button class="filter-btn" data-ext="pkg" onclick="toggleFilter(this)">pkg</button>
+          <button class="filter-btn" data-ext="apk" onclick="toggleFilter(this)">apk</button>
+          <button class="filter-btn" data-ext="deb" onclick="toggleFilter(this)">deb</button>
+          <button class="filter-btn" data-ext="rpm" onclick="toggleFilter(this)">rpm</button>
+          <button class="filter-btn" data-ext="appimage" onclick="toggleFilter(this)">appimage</button>
+        </div>
+      </div>
+
+      <div class="filter-group" data-group="images">
+        <div class="group-header">
+          <button class="group-label" onclick="toggleGroup('images')">Images</button>
+          <div class="group-divider"></div>
+        </div>
+        <div class="filters">
+          <button class="filter-btn" data-ext="jpg" onclick="toggleFilter(this)">jpg</button>
+          <button class="filter-btn" data-ext="png" onclick="toggleFilter(this)">png</button>
+          <button class="filter-btn" data-ext="raw" onclick="toggleFilter(this)">raw</button>
+          <button class="filter-btn" data-ext="cr2" onclick="toggleFilter(this)">cr2</button>
+          <button class="filter-btn" data-ext="nef" onclick="toggleFilter(this)">nef</button>
+          <button class="filter-btn" data-ext="tiff" onclick="toggleFilter(this)">tiff</button>
+          <button class="filter-btn" data-ext="psd" onclick="toggleFilter(this)">psd</button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="filters-label" style="margin-top:0">// Generated Query Preview</div>
+    <div class="query-preview" id="queryPreview">
+      <span class="op">intitle:</span><span class="kw">"index of"</span> <span style="color:#e8e8f0">←</span> type something to preview
+    </div>
+  </div>
+
+  <div class="how-it-works">
+    <div class="how-title">How It Works</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-title">Type a filename</div>
+        <div class="step-desc">Enter any file name, movie, album, or software title you're looking for.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-title">Choose a mode</div>
+        <div class="step-desc"><b style="color:var(--accent)">Directory Listing</b> finds open index pages to browse. <b style="color:var(--accent2)">Direct File</b> targets URLs ending in the file extension itself.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-title">Pick a result</div>
+        <div class="step-desc">Browse actual web servers with exposed file listings and grab direct links.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-title">Direct download</div>
+        <div class="step-desc">No redirects, no middlemen. Click the file link on the server and download directly.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>DirHunt — 100% client-side. No data is stored or tracked.</p>
+    <p style="margin-top:6px">Press <kbd style="border:1px solid var(--border);padding:1px 5px;border-radius:2px">Enter</kbd> to search</p>
+  </footer>
+
+</div>
+
+<script>
+  let selectedEngine = 'google';
+  let selectedExts = new Set();
+  let selectedMode = 'index';
+
+  const engineUrls = {
+    google:    q => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
+    bing:      q => `https://www.bing.com/search?q=${encodeURIComponent(q)}`,
+    ddg:       q => `https://duckduckgo.com/?q=${encodeURIComponent(q)}`,
+    startpage: q => `https://www.startpage.com/search?q=${encodeURIComponent(q)}`,
+  };
+
+  const MODE_META = {
+    'index': {
+      color: 'var(--accent)',
+      previewHint: `<span class="op">intitle:</span><span class="kw">"index of"</span> <span style="color:#555">←</span> type something to preview`,
+      borderColor: 'var(--accent3)',
+      note: null,
+    },
+    'inurl': {
+      color: 'var(--accent2)',
+      previewHint: `<span class="op">inurl:</span><span class="kw">".ext"</span> <span style="color:#555">←</span> type something + select an extension`,
+      borderColor: 'var(--accent2)',
+      note: {
+        color: 'var(--accent2)',
+        html: `<strong style="color:var(--accent2)">Direct File mode:</strong> finds URLs that end in the extension (e.g. <code>/movie.mkv</code>) — results go straight to the file, no directory browsing. <strong>Select at least one extension</strong> below for this to work.`,
+      },
+    },
+    'combined-inc': {
+      color: 'var(--accent3)',
+      previewHint: `<span class="op">intitle:</span><span class="kw">"index of"</span> + <span class="op">inurl:</span><span class="kw">".ext"</span> <span style="color:#555">←</span> type + select extension`,
+      borderColor: 'var(--accent3)',
+      note: {
+        color: 'var(--accent3)',
+        html: `<strong style="color:var(--accent3)">Combined Include mode:</strong> finds directory listings <em>whose URL path already contains</em> the extension — e.g. <code>intitle:"index of" "dark knight" inurl:".mkv"</code>. This means the server path itself includes the file name, pointing at the most relevant directories. <strong>Select at least one extension.</strong>`,
+      },
+    },
+    'combined-exc': {
+      color: '#ffaa33',
+      previewHint: `<span class="op">intitle:</span><span class="kw">"index of"</span> + <span style="color:#ffaa33">-inurl:</span><span class="kw">".ext"</span> <span style="color:#555">←</span> type + select extension`,
+      borderColor: '#ffaa33',
+      note: {
+        color: '#ffaa33',
+        html: `<strong style="color:#ffaa33">Combined Exclude mode:</strong> finds directory listings that do <em>not</em> have those extensions in their URL — useful to skip file-type-specific subdirectories and surface higher-level folders. e.g. <code>intitle:"index of" "dark knight" -inurl:".mkv"</code>. <strong>Select at least one extension.</strong>`,
+      },
+    },
+  };
+
+  // Mode 1: plain directory listing
+  function buildIndexQuery(kw, exts) {
+    let q = `intitle:"index of" "${kw}"`;
+    if (exts.size === 1)      q += ` "${[...exts][0]}"`;
+    else if (exts.size > 1)  q += ' (' + [...exts].map(e => `"${e}"`).join(' OR ') + ')';
+    q += ` -inurl:(jsp|pl|php|html|aspx|htm|cf|shtml|phtml|asp)`;
+    return q;
+  }
+
+  // Mode 2: direct file via inurl
+  function buildInurlQuery(kw, exts) {
+    if (exts.size === 0) return `"${kw}" -inurl:(jsp|pl|php|html|aspx|htm|cf|shtml) -intitle:"index of"`;
+    const inurlPart = exts.size === 1
+      ? `inurl:".${[...exts][0]}"`
+      : '(' + [...exts].map(e => `inurl:".${e}"`).join(' OR ') + ')';
+    return `"${kw}" ${inurlPart}`;
+  }
+
+  // Mode 3: directory listing + inurl (include — path contains ext)
+  function buildCombinedIncQuery(kw, exts) {
+    let q = `intitle:"index of" "${kw}"`;
+    if (exts.size === 0) {
+      q += ` -inurl:(jsp|pl|php|html|aspx|htm|cf|shtml|phtml|asp)`;
+    } else if (exts.size === 1) {
+      q += ` inurl:".${[...exts][0]}"`;
+    } else {
+      q += ' (' + [...exts].map(e => `inurl:".${e}"`).join(' OR ') + ')';
+    }
+    return q;
+  }
+
+  // Mode 4: directory listing + -inurl (exclude — path does NOT contain ext)
+  function buildCombinedExcQuery(kw, exts) {
+    let q = `intitle:"index of" "${kw}"`;
+    if (exts.size === 0) {
+      q += ` -inurl:(jsp|pl|php|html|aspx|htm|cf|shtml|phtml|asp)`;
+    } else if (exts.size === 1) {
+      q += ` -inurl:".${[...exts][0]}"`;
+    } else {
+      q += ' ' + [...exts].map(e => `-inurl:".${e}"`).join(' ');
+    }
+    return q;
+  }
+
+  function buildQuery(kw, exts) {
+    switch (selectedMode) {
+      case 'inurl':        return buildInurlQuery(kw, exts);
+      case 'combined-inc': return buildCombinedIncQuery(kw, exts);
+      case 'combined-exc': return buildCombinedExcQuery(kw, exts);
+      default:             return buildIndexQuery(kw, exts);
+    }
+  }
+
+  function colorizeQuery(q, kw) {
+    return q
+      .replace(/(intitle:)/g, '<span class="op">$1</span>')
+      .replace(/"index of"/g, '<span class="kw">"index of"</span>')
+      .replace(/(-inurl:\([^)]+\))/g, '<span style="color:var(--accent2)">$1</span>')
+      .replace(/(-inurl:"[^"]*")/g, '<span style="color:#ffaa33">$1</span>')
+      .replace(/(inurl:"[^"]*")/g, '<span style="color:var(--accent2)">$1</span>')
+      .replace(new RegExp(`"${escapeRegex(kw)}"`, 'g'), `<span style="color:#fff;font-weight:700">"${kw}"</span>`);
+  }
+
+  function updatePreview() {
+    const kw = document.getElementById('searchInput').value.trim();
+    const preview = document.getElementById('queryPreview');
+    const meta = MODE_META[selectedMode];
+
+    preview.style.borderLeftColor = meta.borderColor;
+
+    if (!kw) {
+      preview.innerHTML = meta.previewHint;
+      return;
+    }
+
+    preview.innerHTML = colorizeQuery(buildQuery(kw, selectedExts), kw);
+  }
+
+  function updateCount() {
+    const el = document.getElementById('selectedCount');
+    el.textContent = selectedExts.size === 0
+      ? ''
+      : `${selectedExts.size} selected: ${[...selectedExts].join(', ')}`;
+  }
+
+  function escapeRegex(str) {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function selectMode(btn) {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedMode = btn.dataset.mode;
+
+    const note = document.getElementById('modeNote');
+    const meta = MODE_META[selectedMode];
+    if (meta.note) {
+      note.innerHTML = meta.note.html;
+      note.style.borderLeftColor = meta.note.color;
+      note.classList.add('visible');
+    } else {
+      note.classList.remove('visible');
+    }
+    updatePreview();
+  }
+
+  function selectEngine(btn) {
+    document.querySelectorAll('.engine-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedEngine = btn.dataset.engine;
+  }
+
+  function toggleGroup(groupName) {
+    const group = document.querySelector(`.filter-group[data-group="${groupName}"]`);
+    const btns = group.querySelectorAll('.filter-btn');
+    const label = group.querySelector('.group-label');
+    const allActive = [...btns].every(b => selectedExts.has(b.dataset.ext));
+    if (allActive) {
+      btns.forEach(b => { selectedExts.delete(b.dataset.ext); b.classList.remove('active'); });
+      label.classList.remove('group-all-active');
+    } else {
+      btns.forEach(b => { selectedExts.add(b.dataset.ext); b.classList.add('active'); });
+      label.classList.add('group-all-active');
+    }
+    updateCount();
+    updatePreview();
+  }
+
+  function syncGroupLabel(groupEl) {
+    const btns = groupEl.querySelectorAll('.filter-btn');
+    const label = groupEl.querySelector('.group-label');
+    label.classList.toggle('group-all-active', [...btns].every(b => selectedExts.has(b.dataset.ext)));
+  }
+
+  function toggleFilter(btn) {
+    const ext = btn.dataset.ext;
+    if (selectedExts.has(ext)) {
+      selectedExts.delete(ext);
+      btn.classList.remove('active');
+    } else {
+      selectedExts.add(ext);
+      btn.classList.add('active');
+    }
+    syncGroupLabel(btn.closest('.filter-group'));
+    updateCount();
+    updatePreview();
+  }
+
+  function clearFilters() {
+    selectedExts.clear();
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.group-label').forEach(l => l.classList.remove('group-all-active'));
+    updateCount();
+    updatePreview();
+  }
+
+  function doSearch() {
+    const kw = document.getElementById('searchInput').value.trim();
+    const inp = document.getElementById('searchInput');
+    if (!kw) {
+      inp.focus();
+      inp.style.borderColor = 'var(--accent2)';
+      setTimeout(() => { inp.style.borderColor = ''; }, 800);
+      return;
+    }
+    window.open(engineUrls[selectedEngine](buildQuery(kw, selectedExts)), '_blank');
+  }
+
+  document.getElementById('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  document.getElementById('searchInput').addEventListener('input', updatePreview);
+</script>
+</body>
+</html>
