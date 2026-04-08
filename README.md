@@ -12,6 +12,7 @@ A centralized collection of automation scripts and utilities written in Bash, Py
 | BASH | remote-fetch.sh | [View](./BASH/remote-fetch.sh) |
 | BASH | set-hostname.sh | [View](./BASH/set-hostname.sh) |
 | BASH | set-ip.sh | [View](./BASH/set-ip.sh) |
+| BASH | square_function.sh | [View](./BASH/square_function.sh) |
 | BASH | sshd-setup-print-status.sh | [View](./BASH/sshd-setup-print-status.sh) |
 | BASH | sshd-setup.sh | [View](./BASH/sshd-setup.sh) |
 
